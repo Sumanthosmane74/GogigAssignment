@@ -35,3 +35,11 @@ def test_upload_and_status_flow(client):
 
     status_response = client.get(f"/uploads/{body['processing_id']}/status")
     assert status_response.status_code == 200
+
+
+def test_home_page_serves_upload_ui(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Upload an image" in response.text
+    assert "Processing workflow" in response.text

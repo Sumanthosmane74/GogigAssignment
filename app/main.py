@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.core.config import MAX_UPLOAD_SIZE_MB, UPLOAD_ROOT
@@ -25,8 +26,22 @@ app = FastAPI(title="Intelligent Media Processing Pipeline", version="1.0.0")
 Base.metadata.create_all(bind=engine)
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
+# Setup static files
+static_dir = Path(__file__).parent / "static"
+static_dir.mkdir(parents=True, exist_ok=True)
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-@app.post("/uploads", status_code=202)
+@app.get("/")
+def root():
+    """Serve the frontend HTML"""
+    index_path = Path(__file__).parent / "static" / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path, media_type="text/html")
+    return {"message": "Welcome to Media Processing Pipeline"}
+
+
+@app.post("/api/uploads", status_code=202)
 def upload_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")
@@ -78,7 +93,7 @@ def upload_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
     )
 
 
-@app.get("/uploads/{processing_id}/status")
+@app.get("/api/uploads/{processing_id}/status")
 def get_status(processing_id: str, db: Session = Depends(get_db)):
     asset = db.query(MediaAsset).filter(MediaAsset.id == processing_id).first()
     if not asset:
@@ -92,7 +107,7 @@ def get_status(processing_id: str, db: Session = Depends(get_db)):
     }
 
 
-@app.get("/uploads/{processing_id}/results")
+@app.get("/api/uploads/{processing_id}/results")
 def get_results(processing_id: str, db: Session = Depends(get_db)):
     asset = db.query(MediaAsset).filter(MediaAsset.id == processing_id).first()
     if not asset:
@@ -106,7 +121,7 @@ def get_results(processing_id: str, db: Session = Depends(get_db)):
     }
 
 
-@app.get("/uploads/{processing_id}/failure")
+@app.get("/api/uploads/{processing_id}/failure")
 def get_failure(processing_id: str, db: Session = Depends(get_db)):
     asset = db.query(MediaAsset).filter(MediaAsset.id == processing_id).first()
     if not asset:

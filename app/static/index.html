@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Processing Pipeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            gap: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .upload-zone {
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 50px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-zone:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+            transform: scale(1.01);
+        }
+
+        .upload-zone.dragging {
+            background: #e8ebff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .upload-zone h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .upload-zone p {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .status-container {
+            display: none;
+            padding: 20px;
+            background: #f0f2ff;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .status-container.active {
+            display: block;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 15px;
+        }
+
+        .status-label {
+            min-width: 120px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.processing {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-badge.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            animation: progress 2s ease-in-out infinite;
+            border-radius: 3px;
+        }
+
+        .results-container {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .results-container.active {
+            display: block;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .results-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .results-title.success {
+            color: #2ecc71;
+        }
+
+        .results-title.error {
+            color: #e74c3c;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            animation: slideUp 0.5s ease-out;
+        }
+
+        .metric-card h4 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+        }
+
+        .metric-unit {
+            font-size: 0.8em;
+            opacity: 0.8;
+        }
+
+        .summary-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .summary-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .summary-text {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .issues-list {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .issues-list.empty {
+            background: #d4edda;
+            border-left-color: #2ecc71;
+            color: #155724;
+        }
+
+        .issues-list h5 {
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .issues-list ul {
+            margin-left: 20px;
+            color: #666;
+        }
+
+        .issues-list li {
+            margin-bottom: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #e74c3c;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .info-message {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #17a2b8;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .info-message.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes progress {
+            0% {
+                width: 0;
+            }
+            50% {
+                width: 100%;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .card {
+                padding: 25px;
+            }
+
+            .upload-zone {
+                padding: 30px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+        .detection-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-top: 8px;
+        }
+
+        .detection-badge.true {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .detection-badge.false {
+            background: #2ecc71;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Media Processing Pipeline</h1>
+            <p>Advanced image analysis and quality detection</p>
+        </header>
+
+        <div class="main-content">
+            <div class="card">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">📸</div>
+                    <h3>Drop your image here</h3>
+                    <p>or click to browse • Supports JPEG, PNG • Max 25MB</p>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+
+                <div class="status-container" id="statusContainer">
+                    <div class="status-item">
+                        <span class="status-label">Status:</span>
+                        <span class="status-badge" id="statusBadge">Pending</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="info-message show" id="processingMessage">
+                        ⏳ Processing your image... This may take a few moments.
+                    </div>
+                </div>
+
+                <div class="error-message" id="errorMessage"></div>
+
+                <div class="results-container" id="resultsContainer">
+                    <div class="results-title success" id="resultsTitle">
+                        <span>✓</span> Analysis Complete
+                    </div>
+
+                    <div class="metrics-grid" id="metricsGrid"></div>
+
+                    <div class="summary-section" id="summarySection"></div>
+
+                    <div class="issues-list" id="issuesList"></div>
+
+                    <div class="action-buttons">
+                        <button class="btn-primary" onclick="resetForm()">Upload Another Image</button>
+                        <button class="btn-secondary" onclick="downloadResults()">Download Results</button>
+                    </div>
+                </div>
+
+                <div class="action-buttons" id="uploadButtons" style="margin-top: 20px;">
+                    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Choose Image
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const statusContainer = document.getElementById('statusContainer');
+        const statusBadge = document.getElementById('statusBadge');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const uploadButtons = document.getElementById('uploadButtons');
+        const processingMessage = document.getElementById('processingMessage');
+        let currentProcessingId = null;
+
+        // Drag and drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragging');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragging');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragging');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        uploadZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        async function handleFileSelect(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please upload an image file');
+                return;
+            }
+
+            if (file.size > 25 * 1024 * 1024) {
+                showError('File size exceeds 25MB limit');
+                return;
+            }
+
+            clearError();
+            uploadButtons.style.display = 'none';
+            statusContainer.classList.add('active');
+            resultsContainer.classList.remove('active');
+            statusBadge.textContent = 'Uploading...';
+            statusBadge.className = 'status-badge processing';
+            processingMessage.classList.add('show');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/uploads', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Upload failed');
+                }
+
+                const data = await response.json();
+                currentProcessingId = data.processing_id;
+
+                statusBadge.textContent = 'Processing';
+                statusBadge.className = 'status-badge processing';
+
+                // Poll for status
+                pollStatus();
+            } catch (error) {
+                showError('Failed to upload image: ' + error.message);
+                statusContainer.classList.remove('active');
+                uploadButtons.style.display = 'flex';
+            }
+        }
+
+        async function pollStatus() {
+            if (!currentProcessingId) return;
+
+            try {
+                const response = await fetch(`/api/uploads/${currentProcessingId}/status`);
+                const data = await response.json();
+
+                const statusMap = {
+                    'pending': 'Pending',
+                    'processing': 'Processing',
+                    'completed': 'Completed',
+                    'failed': 'Failed'
+                };
+
+                statusBadge.textContent = statusMap[data.status] || data.status;
+                statusBadge.className = `status-badge ${data.status}`;
+
+                if (data.status === 'completed') {
+                    processingMessage.classList.remove('show');
+                    await fetchResults();
+                } else if (data.status === 'failed') {
+                    processingMessage.classList.remove('show');
+                    await fetchFailure();
+                } else {
+                    // Continue polling
+                    setTimeout(pollStatus, 1000);
+                }
+            } catch (error) {
+                console.error('Status check failed:', error);
+                setTimeout(pollStatus, 2000);
+            }
+        }
+
+        async function fetchResults() {
+            try {
+                const response = await fetch(`/api/uploads/${currentProcessingId}/results`);
+                if (!response.ok) throw new Error('Failed to fetch results');
+
+                const data = await response.json();
+                displayResults(data.analysis_results);
+            } catch (error) {
+                showError('Failed to fetch results: ' + error.message);
+            }
+        }
+
+        async function fetchFailure() {
+            try {
+                const response = await fetch(`/api/uploads/${currentProcessingId}/failure`);
+                if (!response.ok) throw new Error('Failed to fetch failure info');
+
+                const data = await response.json();
+                showError('Processing failed: ' + data.failure_reason);
+            } catch (error) {
+                showError('Processing failed');
+            }
+        }
+
+        function displayResults(results) {
+            const metricsGrid = document.getElementById('metricsGrid');
+            const summarySection = document.getElementById('summarySection');
+            const issuesList = document.getElementById('issuesList');
+            const resultsTitle = document.getElementById('resultsTitle');
+
+            // Display metrics
+            metricsGrid.innerHTML = `
+                <div class="metric-card">
+                    <h4>Blur Score</h4>
+                    <div class="metric-value">${results.blur_score.toFixed(2)}</div>
+                    <div class="metric-unit">0-100 (lower is better)</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Brightness</h4>
+                    <div class="metric-value">${results.brightness_score.toFixed(2)}</div>
+                    <div class="metric-unit">0-100</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Confidence</h4>
+                    <div class="metric-value">${(results.confidence * 100).toFixed(0)}%</div>
+                    <div class="metric-unit">Analysis confidence</div>
+                </div>
+            `;
+
+            // Display summary
+            summarySection.innerHTML = `
+                <div class="summary-title">📋 Analysis Summary</div>
+                <div class="summary-text">${results.summary}</div>
+                <div>
+                    <span class="detection-badge ${results.duplicate_detected ? 'true' : 'false'}">
+                        ${results.duplicate_detected ? '⚠️ Duplicate Detected' : '✓ Original'}
+                    </span>
+                    <span class="detection-badge ${results.screenshot_like ? 'true' : 'false'}">
+                        ${results.screenshot_like ? '⚠️ Screenshot-like' : '✓ Photo'}
+                    </span>
+                </div>
+            `;
+
+            // Display issues
+            if (results.issues && results.issues.length > 0) {
+                issuesList.innerHTML = `
+                    <h5>⚠️ Detected Issues</h5>
+                    <ul>
+                        ${results.issues.map(issue => `<li>${issue}</li>`).join('')}
+                    </ul>
+                `;
+                issuesList.className = 'issues-list';
+            } else {
+                issuesList.innerHTML = `
+                    <h5>✓ No Issues Detected</h5>
+                    <p>Your image looks good!</p>
+                `;
+                issuesList.className = 'issues-list empty';
+            }
+
+            resultsTitle.className = 'results-title success';
+            resultsTitle.innerHTML = '<span>✓</span> Analysis Complete';
+            resultsContainer.classList.add('active');
+            uploadButtons.style.display = 'flex';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+
+        function clearError() {
+            errorMessage.classList.remove('show');
+        }
+
+        function resetForm() {
+            fileInput.value = '';
+            statusContainer.classList.remove('active');
+            resultsContainer.classList.remove('active');
+            uploadButtons.style.display = 'flex';
+            uploadZone.classList.remove('dragging');
+            currentProcessingId = null;
+            clearError();
+        }
+
+        function downloadResults() {
+            if (!currentProcessingId) return;
+            const resultsData = {
+                processing_id: currentProcessingId,
+                results: document.getElementById('metricsGrid').textContent,
+                timestamp: new Date().toISOString()
+            };
+            const dataStr = JSON.stringify(resultsData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `analysis-${currentProcessingId}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
